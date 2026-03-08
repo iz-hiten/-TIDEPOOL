@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Tidepool — Simulation Engine v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050810;
+  --panel: #080d1a;
+  --border: #131d35;
+  --accent: #00c8ff;
+  --green: #00ff9d;
+  --red: #ff4466;
+  --amber: #ffaa00;
+  --muted: #3a5070;
+  --text: #a8c8e8;
+  --bright: #ddeeff;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+header {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  background: var(--panel); flex-shrink: 0;
+}
+.logo { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+.logo span { color: var(--green); }
+.hdr-info { color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+.hdr-right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+.btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: 1px;
+  padding: 5px 14px; border: 1px solid var(--border);
+  background: transparent; color: var(--text);
+  cursor: pointer; text-transform: uppercase;
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #000; }
+
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* Canvas area */
+.canvas-wrap {
+  position: relative; flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: #020508;
+  overflow: hidden;
+}
+canvas#world { display: block; cursor: crosshair; }
+
+/* Overlay text */
+.day-badge {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 12px;
+  background: rgba(5,8,16,0.7);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+.day-badge.night { border-color: var(--muted); color: var(--muted); }
+.day-badge.day { border-color: var(--amber); color: var(--amber); }
+
+/* Right panel */
+.rpanel {
+  width: 260px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.rpanel-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.rpanel-title {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
+}
+.stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--text); }
+.stat-val { color: var(--bright); font-weight: 700; }
+.stat-val.good { color: var(--green); }
+.stat-val.bad { color: var(--red); }
+.stat-val.warn { color: var(--amber); }
+
+.bar-wrap { background: rgba(0,0,0,0.4); height: 4px; margin: 3px 0 8px; border-radius: 2px; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width 0.1s; }
+
+.sensor-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.sensor-item {
+  background: rgba(0,0,0,0.3);
+  padding: 6px 8px; font-size: 9px;
+  border: 1px solid var(--border);
+}
+.sensor-label { color: var(--muted); margin-bottom: 2px; }
+.sensor-val { color: var(--bright); font-size: 10px; }
+
+/* Bottom status bar */
+.statusbar {
+  height: 24px; flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 24px;
+  font-size: 10px; color: var(--muted);
+}
+.status-item { display: flex; gap: 6px; }
+.status-val { color: var(--text); }
+
+/* Chemical waveform canvas */
+canvas#chemwave, canvas#acouswave {
+  width: 100%; height: 40px; display: block;
+  background: rgba(0,0,0,0.3);
+}
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Brain interface section */
+.sensor-tape {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  margin-top: 4px;
+}
+.stape-cell {
+  width: 14px; height: 14px;
+  border-radius: 2px;
+  font-size: 7px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Speed controls */
+.speed-btns { display: flex; gap: 6px; margin-top: 6px; }
+
+/* Score table */
+.score-table { width: 100%; font-size: 10px; border-collapse: collapse; }
+.score-table td { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.score-table td:last-child { text-align: right; color: var(--bright); }
+
+/* Nutrition rotation indicator */
+.nutri-row { display: flex; gap: 6px; margin-top: 6px; }
+.nutri-badge {
+  width: 28px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.nutri-badge.good { background: rgba(0,255,157,0.15); border-color: var(--green); color: var(--green); }
+.nutri-badge.bad { background: rgba(255,68,102,0.15); border-color: var(--red); color: var(--red); }
+.nutri-badge.neutral { color: var(--muted); }
+
+/* Brain output display */
+.brain-output-row { display: flex; gap: 8px; margin-top: 6px; }
+.brain-out-item { flex: 1; }
+.brain-out-label { font-size: 9px; color: var(--muted); }
+.brain-out-bar { height: 6px; background: rgba(0,0,0,0.4); margin-top: 3px; border-radius: 3px; }
+.brain-out-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+textarea#brainCode {
+  width: 100%; background: #020508;
+  border: 1px solid var(--border);
+  color: var(--green); font-family: 'Space Mono', monospace;
+  font-size: 9px; padding: 8px; resize: vertical;
+  outline: none; line-height: 1.6;
+  min-height: 120px;
+}
+textarea#brainCode:focus { border-color: var(--accent); }
+.code-error { color: var(--red); font-size: 9px; margin-top: 4px; min-height: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">THE <span>TIDEPOOL</span></span>
+  <span class="hdr-info">SIMULATION ENGINE v1.0 // 100×100 TOROIDAL WORLD</span>
+  <div class="hdr-right">
+    <span id="hdr-step" style="color:var(--accent);font-size:10px;">T=0</span>
+    <button class="btn active" id="btnRun" onclick="toggleRun()">▶ RUN</button>
+    <button class="btn" onclick="resetSim()">↺ RESET</button>
+    <button class="btn btn-danger" onclick="newTrial()">NEW TRIAL</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="world"></canvas>
+    <div class="day-badge day" id="dayBadge">DAY</div>
+  </div>
+
+  <div class="rpanel">
+
+    <!-- Creature Stats -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Creature Status</div>
+      <div class="stat-row"><span>Energy</span><span class="stat-val" id="s-energy">150</span></div>
+      <div class="bar-wrap"><div class="bar-fill" id="bar-energy" style="width:50%;background:var(--green)"></div></div>
+      <div class="stat-row"><span>Hunger</span><span class="stat-val" id="s-hunger">0.00</span></div>
+      <div class="bar-wrap"><div class="bar-fill" id="bar-hunger" style="width:0%;background:var(--amber)"></div></div>
+      <div class="stat-row"><span>Speed</span><span class="stat-val" id="s-speed">0.00</span></div>
+      <div class="stat-row"><span>Heading θ</span><span class="stat-val" id="s-theta">0.00</span></div>
+      <div class="stat-row"><span>Reward</span><span class="stat-val" id="s-reward">0</span></div>
+      <div class="stat-row"><span>Eat events</span><span class="stat-val" id="s-eats">0</span></div>
+      <div class="stat-row"><span>Predator hits</span><span class="stat-val bad" id="s-phits">0</span></div>
+    </div>
+
+    <!-- Nutrition State -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Nutrition Rotation</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Next rotation in <span id="nutri-countdown" style="color:var(--amber)">600</span> steps</div>
+      <div class="nutri-row" id="nutri-row"></div>
+    </div>
+
+    <!-- Day/Night -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Day / Night Cycle (T=800)</div>
+      <div class="stat-row"><span>Daylight</span><span class="stat-val" id="s-daylight">1.00</span></div>
+      <div class="bar-wrap"><div class="bar-fill" id="bar-daylight" style="width:100%;background:var(--amber)"></div></div>
+      <div class="stat-row"><span>In shelter</span><span class="stat-val" id="s-inshelter">No</span></div>
+      <div class="stat-row"><span>Night coverage</span><span class="stat-val good" id="s-nightcov">—</span></div>
+    </div>
+
+    <!-- Chemical Sensor -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Chemical Sensor (Waveform)</div>
+      <canvas id="chemwave" height="40"></canvas>
+      <div style="margin-top:4px;font-size:9px;color:var(--muted)">Value: <span id="s-chem" style="color:var(--green)">0.000</span></div>
+    </div>
+
+    <!-- Acoustic Sensor -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Acoustic Sensors L/R</div>
+      <canvas id="acouswave" height="40"></canvas>
+      <div class="stat-row" style="margin-top:4px;"><span>L</span><span class="stat-val" id="s-acl">0.000</span></div>
+      <div class="stat-row"><span>R</span><span class="stat-val" id="s-acr">0.000</span></div>
+    </div>
+
+    <!-- Brain Interface -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Brain Output (Your Controller)</div>
+      <div class="brain-output-row">
+        <div class="brain-out-item">
+          <div class="brain-out-label">Thrust</div>
+          <div class="brain-out-bar"><div class="brain-out-fill" id="bo-thrust" style="width:50%"></div></div>
+          <div style="color:var(--bright);font-size:9px;margin-top:2px;" id="bv-thrust">0.00</div>
+        </div>
+        <div class="brain-out-item">
+          <div class="brain-out-label">Turn Rate</div>
+          <div class="brain-out-bar"><div class="brain-out-fill" id="bo-turn" style="width:50%;background:var(--amber)"></div></div>
+          <div style="color:var(--bright);font-size:9px;margin-top:2px;" id="bv-turn">0.00</div>
+        </div>
+        <div class="brain-out-item">
+          <div class="brain-out-label">Eat</div>
+          <div class="brain-out-bar"><div class="brain-out-fill" id="bo-eat" style="width:0%;background:var(--green)"></div></div>
+          <div style="color:var(--bright);font-size:9px;margin-top:2px;" id="bv-eat">0.00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Live Score</div>
+      <table class="score-table">
+        <tr><td>Survival</td><td id="sc-surv">—</td></tr>
+        <tr><td>Foraging acc.</td><td id="sc-forage">—</td></tr>
+        <tr><td>Predator avoid.</td><td id="sc-pred">—</td></tr>
+        <tr><td>Shelter timing</td><td id="sc-shelter">—</td></tr>
+        <tr><td>Activity cost</td><td id="sc-activity">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Brain Code Editor -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Brain Controller (JS)</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:6px;">Function receives <code style="color:var(--accent)">sensors</code> object, returns <code style="color:var(--green)">{thrust, turnRate, eat}</code></div>
+      <textarea id="brainCode" spellcheck="false">// ═══════════════════════════════════════════════════════════════
+// IMMORTAL CREATURE BRAIN - Advanced Multi-System Architecture
+// ═══════════════════════════════════════════════════════════════
+
+// Initialize persistent state
+if (!_state.init) {
+  _state.chemBuffer = new Array(100).fill(0);
+  _state.nutritionModel = {A:0, B:0, C:0, D:0};
+  _state.nutritionConfidence = {A:0, B:0, C:0, D:0};
+  _state.lastRotation = 0;
+  _state.foodMemory = [];
+  _state.predatorMemory = [];
+  _state.energyHistory = [];
+  _state.shelterPriority = 0;
+  _state.explorationPhase = true;
+  _state.frequencyDetector = {A:[], B:[], C:[], D:[]};
+  _state.init = true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1. ENERGY CRISIS MANAGEMENT SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const CRITICAL_ENERGY = 80;
+const LOW_ENERGY = 120;
+const energyRate = _state.energyHistory.length > 1 ? 
+  sensors.energy - _state.energyHistory[_state.energyHistory.length-1] : 0;
+_state.energyHistory.push(sensors.energy);
+if (_state.energyHistory.length > 50) _state.energyHistory.shift();
+
+const avgEnergyRate = _state.energyHistory.length > 10 ?
+  (_state.energyHistory[_state.energyHistory.length-1] - _state.energyHistory[0]) / _state.energyHistory.length : 0;
+
+const energyCrisis = sensors.energy < CRITICAL_ENERGY;
+const energyLow = sensors.energy < LOW_ENERGY;
+
+// Predict time until death
+const stepsUntilDeath = energyRate < 0 ? Math.abs(sensors.energy / energyRate) : Infinity;
+const emergencyMode = stepsUntilDeath < 200 || energyCrisis;
+
+// ═══════════════════════════════════════════════════════════════
+// 2. FREQUENCY-DOMAIN CHEMICAL SIGNAL DECOMPOSITION
+// ═══════════════════════════════════════════════════════════════
+_state.chemBuffer.push(sensors.chemical);
+if (_state.chemBuffer.length > 100) _state.chemBuffer.shift();
+
+const PERIODS = {A:6, B:10, C:16, D:24};
+const foodScores = {};
+
+for (const [type, period] of Object.entries(PERIODS)) {
+  let correlation = 0;
+  const bufLen = Math.min(_state.chemBuffer.length, period * 5);
+  
+  for (let i = 0; i < bufLen; i++) {
+    const phase = i % period;
+    const expected = Math.exp(-(phase*phase)/(2*1.0*1.0));
+    correlation += _state.chemBuffer[_state.chemBuffer.length - 1 - i] * expected;
+  }
+  
+  foodScores[type] = correlation / bufLen;
+  
+  // Update frequency detector
+  _state.frequencyDetector[type].push(correlation);
+  if (_state.frequencyDetector[type].length > 30) _state.frequencyDetector[type].shift();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. BAYESIAN NUTRITION LEARNING SYSTEM
+// ═══════════════════════════════════════════════════════════════
+if (sensors.reward !== 0 && sensors.reward !== _state.lastReward) {
+  const detectedTypes = Object.entries(foodScores)
+    .filter(([t,s]) => s > 0.01)
+    .sort((a,b) => b[1] - a[1]);
+  
+  if (detectedTypes.length > 0) {
+    const likelyType = detectedTypes[0][0];
+    const rewardVal = sensors.reward;
+    
+    // Bayesian update
+    _state.nutritionModel[likelyType] += rewardVal * 0.3;
+    _state.nutritionConfidence[likelyType] += 0.2;
+    
+    // Decay other types
+    for (const t of ['A','B','C','D']) {
+      if (t !== likelyType) {
+        _state.nutritionModel[t] *= 0.95;
+      }
+    }
+  }
+}
+_state.lastReward = sensors.reward;
+
+// Detect nutrition rotation
+const totalConfidence = Object.values(_state.nutritionConfidence).reduce((a,b)=>a+b,0);
+if (totalConfidence > 2 && sensors.t - _state.lastRotation > 500) {
+  const avgModel = Object.values(_state.nutritionModel).reduce((a,b)=>a+b,0) / 4;
+  if (Math.abs(avgModel) < 0.1) {
+    // Rotation detected - reset model
+    _state.nutritionModel = {A:0, B:0, C:0, D:0};
+    _state.nutritionConfidence = {A:0, B:0, C:0, D:0};
+    _state.lastRotation = sensors.t;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. ACOUSTIC PREDATOR LOCALIZATION (Phase Difference)
+// ═══════════════════════════════════════════════════════════════
+const phaseDiff = sensors.acL - sensors.acR;
+const predatorThreat = Math.abs(sensors.acL) + Math.abs(sensors.acR);
+const predatorAngle = Math.atan2(phaseDiff, predatorThreat + 0.001);
+
+// Check proximity sensors for immediate predator threat
+let closestPredator = null;
+let minPredDist = Infinity;
+for (let i = 0; i < sensors.proximity.length; i++) {
+  const r = sensors.proximity[i];
+  if (r.type === 2 && r.dist < minPredDist) {
+    minPredDist = r.dist;
+    closestPredator = (i / sensors.proximity.length) * Math.PI * 2;
+  }
+}
+
+const predatorDanger = minPredDist < 5 || predatorThreat > 0.3;
+
+// ═══════════════════════════════════════════════════════════════
+// 5. FOOD TARGETING WITH NUTRITION AWARENESS
+// ═══════════════════════════════════════════════════════════════
+let bestFood = null;
+let bestFoodScore = -Infinity;
+let bestFoodAngle = 0;
+
+for (let i = 0; i < sensors.proximity.length; i++) {
+  const r = sensors.proximity[i];
+  if (r.type === 1) {
+    const angle = (i / sensors.proximity.length) * Math.PI * 2;
+    
+    // Estimate food type from current chemical signature
+    const typeScores = Object.entries(foodScores).sort((a,b) => b[1] - a[1]);
+    const likelyType = typeScores[0][0];
+    const nutritionValue = _state.nutritionModel[likelyType] || 0;
+    
+    // Score based on distance, nutrition, and energy need
+    let score = 1 / (r.dist + 0.1);
+    score *= (1 + nutritionValue * 2);
+    
+    // In emergency, eat anything
+    if (emergencyMode) score *= 3;
+    
+    // Avoid if we know it's toxic (unless emergency)
+    if (nutritionValue < -0.5 && !emergencyMode) score *= 0.1;
+    
+    if (score > bestFoodScore) {
+      bestFoodScore = score;
+      bestFood = r;
+      bestFoodAngle = angle;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 6. SHELTER NAVIGATION SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const nightCyclePhase = (sensors.t % 800) / 800;
+const approachingNight = nightCyclePhase > 0.6 && nightCyclePhase < 0.85;
+const isNight = sensors.daylight < 0.3;
+
+// Calculate shelter urgency
+let shelterUrgency = 0;
+if (isNight) shelterUrgency = 1.0;
+else if (approachingNight) shelterUrgency = 0.7;
+else if (energyLow) shelterUrgency = 0.3;
+
+// Find nearest shelter
+let nearestShelter = sensors.shelterBeacons[0];
+let minShelterDist = Infinity;
+for (let i = 0; i < sensors.proximity.length; i++) {
+  const r = sensors.proximity[i];
+  if (r.type === 4 && r.dist < minShelterDist) {
+    minShelterDist = r.dist;
+  }
+}
+
+const shelterAngle = Math.atan2(nearestShelter.uy, nearestShelter.ux) - sensors.theta;
+const normalizedShelterAngle = Math.atan2(Math.sin(shelterAngle), Math.cos(shelterAngle));
+
+// ═══════════════════════════════════════════════════════════════
+// 7. MULTI-OBJECTIVE DECISION SYSTEM WITH PRIORITY SCHEDULING
+// ═══════════════════════════════════════════════════════════════
+
+// Define behavior priorities
+const priorities = [];
+
+// PRIORITY 1: Immediate predator evasion
+if (predatorDanger) {
+  const evadeAngle = closestPredator !== null ? 
+    closestPredator + Math.PI : // Opposite direction
+    predatorAngle + Math.PI;
+  
+  priorities.push({
+    name: 'predator_evasion',
+    weight: 10.0,
+    targetAngle: evadeAngle,
+    thrust: 1.0,
+    eat: 0
+  });
+}
+
+// PRIORITY 2: Emergency food acquisition
+if (emergencyMode && bestFood) {
+  priorities.push({
+    name: 'emergency_food',
+    weight: 8.0,
+    targetAngle: bestFoodAngle,
+    thrust: 0.9,
+    eat: bestFood.dist < 1.5 ? 1 : 0
+  });
+}
+
+// PRIORITY 3: Shelter seeking (night or approaching night)
+if (shelterUrgency > 0.5) {
+  priorities.push({
+    name: 'shelter_seeking',
+    weight: shelterUrgency * 6.0,
+    targetAngle: normalizedShelterAngle,
+    thrust: 0.8,
+    eat: 0
+  });
+}
+
+// PRIORITY 4: Optimal food foraging
+if (bestFood && !emergencyMode) {
+  const nutritionWeight = bestFoodScore > 0 ? 4.0 : 1.0;
+  priorities.push({
+    name: 'food_foraging',
+    weight: nutritionWeight,
+    targetAngle: bestFoodAngle,
+    thrust: 0.7,
+    eat: bestFood.dist < 1.5 ? 1 : 0
+  });
+}
+
+// PRIORITY 5: Exploration (low priority)
+if (priorities.length === 0 || sensors.t % 100 < 5) {
+  const exploreAngle = (Math.sin(sensors.t * 0.01) * Math.PI);
+  priorities.push({
+    name: 'exploration',
+    weight: 1.0,
+    targetAngle: exploreAngle,
+    thrust: 0.5,
+    eat: 0
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 8. WEIGHTED BEHAVIOR FUSION
+// ═══════════════════════════════════════════════════════════════
+let finalAngle = 0;
+let finalThrust = 0;
+let finalEat = 0;
+let totalWeight = 0;
+
+for (const behavior of priorities) {
+  totalWeight += behavior.weight;
+  finalAngle += behavior.targetAngle * behavior.weight;
+  finalThrust += behavior.thrust * behavior.weight;
+  finalEat = Math.max(finalEat, behavior.eat * behavior.weight);
+}
+
+if (totalWeight > 0) {
+  finalAngle /= totalWeight;
+  finalThrust /= totalWeight;
+  finalEat /= totalWeight;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 9. MOTOR CONTROL WITH MOMENTUM COMPENSATION
+// ═══════════════════════════════════════════════════════════════
+const currentVelAngle = Math.atan2(sensors.vy, sensors.vx);
+const velMag = Math.sqrt(sensors.vx * sensors.vx + sensors.vy * sensors.vy);
+
+// Compensate for momentum
+let turnRate = finalAngle;
+
+// Smooth turning with velocity consideration
+if (velMag > 0.5) {
+  const velDiff = currentVelAngle - sensors.theta;
+  turnRate += Math.sin(velDiff) * 0.2;
+}
+
+// Clamp turn rate
+turnRate = Math.max(-Math.PI/6, Math.min(Math.PI/6, turnRate));
+
+// Adaptive thrust based on alignment
+const alignmentFactor = Math.cos(finalAngle);
+let thrust = finalThrust * (0.7 + 0.3 * Math.max(0, alignmentFactor));
+
+// Emergency boost
+if (emergencyMode) thrust = Math.min(1.0, thrust * 1.2);
+
+// Energy conservation when safe
+if (sensors.energy > 200 && !predatorDanger && !isNight) {
+  thrust *= 0.8;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 10. SAFETY OVERRIDES - ENSURE SURVIVAL
+// ═══════════════════════════════════════════════════════════════
+
+// CRITICAL: If energy is dangerously low, force eat any nearby food
+if (sensors.energy < 50) {
+  for (let i = 0; i < sensors.proximity.length; i++) {
+    const r = sensors.proximity[i];
+    if (r.type === 1 && r.dist < 2.0) {
+      finalEat = 1;
+      break;
+    }
+  }
+}
+
+// CRITICAL: If in shelter at night, stay still to conserve energy
+if (isNight && minShelterDist < 4.0) {
+  thrust *= 0.3;
+}
+
+// CRITICAL: Never stop moving if predator is very close
+if (minPredDist < 3.0) {
+  thrust = Math.max(thrust, 0.9);
+}
+
+return { 
+  thrust: Math.max(-1, Math.min(1, thrust)), 
+  turnRate: turnRate, 
+  eat: finalEat > 0.5 ? 1 : 0 
+};</textarea>
+      <div class="code-error" id="codeError"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button class="btn active" style="flex:1" onclick="applyBrain()">APPLY BRAIN</button>
+        <button class="btn" onclick="loadExampleBrain('greedy')">GREEDY</button>
+        <button class="btn" onclick="loadExampleBrain('shelter')">SHELTER</button>
+      </div>
+    </div>
+
+    <!-- Speed -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Sim Speed</div>
+      <div class="speed-btns">
+        <button class="btn" onclick="setSpeed(1)">1×</button>
+        <button class="btn" onclick="setSpeed(5)">5×</button>
+        <button class="btn active" onclick="setSpeed(10)">10×</button>
+        <button class="btn" onclick="setSpeed(50)">50×</button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#00ff9d"></div>Food A (f=0.167)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00aaff"></div>Food B (f=0.1)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffaa00"></div>Food C (f=0.0625)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff44aa"></div>Food D (f=0.042)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff4466"></div>Predator</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4466ff;border-radius:0"></div>Shelter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffffff"></div>Creature</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="status-item">Step: <span class="status-val" id="sb-step">0 / 20000</span></div>
+  <div class="status-item">Tidal phase: <span class="status-val" id="sb-tidal">0</span></div>
+  <div class="status-item">Day cycle: <span class="status-val" id="sb-daycyc">0</span></div>
+  <div class="status-item">Nutrition phase: <span class="status-val" id="sb-nutphase">AB</span></div>
+  <div class="status-item">Neural activity: <span class="status-val" id="sb-activity">0.00</span></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  WORLD CONSTANTS (per spec)
+// ─────────────────────────────────────────────────────────────
+const W = 100, H = 100;
+const TRIAL_LEN = 20000;
+const DRAG = 0.3, MASS = 1.0;
+const T_TIDE = 2000, T_DAY = 800;
+const FOOD_TYPES = ['A','B','C','D'];
+const FOOD_PERIODS = {A:6, B:10, C:16, D:24};
+const FOOD_COLORS = {A:'#00ff9d', B:'#00aaff', C:'#ffaa00', D:'#ff44aa'};
+const FOOD_COUNT = 30; // per type
+const FOOD_RESPAWN = 80;
+const FOOD_VCHEM = 2.0;
+const SOUND_SPEED = 5.0;
+const PREDATOR_COUNT = 3;
+const PREDATOR_HIT_DIST = 3.0;
+const PREDATOR_DAMAGE = 50;
+const EAT_DIST = 1.5;
+const SHELTER_COUNT = 2;
+const SHELTER_RADIUS = 5.0;
+const ENERGY_GOOD = 40, ENERGY_BAD = -25;
+const NIGHT_IN_ENERGY = 0.1, NIGHT_OUT_ENERGY = -0.15;
+const NIGHT_THRESHOLD = 0.3;
+const NUTRITION_ROTATION_INTERVAL = 600;
+const NUTRITION_PHASES = [['A','B'],['B','C'],['C','D'],['D','A']];
+const MAX_NEURONS = 500, MAX_CONNECTIONS = 10000;
+const RAY_COUNT = 8;
+const RAY_RANGE = 6.0;
+const EAR_OFFSET = 0.3;
+const SENSOR_NOISE = 0.02, PROX_NOISE = 0.3;
+
+// ─────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────
+let sim = null;
+let running = false;
+let simSpeed = 10;
+let rafId = null;
+let brainFn = null;
+let chemHistory = new Float32Array(128).fill(0);
+let acousHistory = new Float32Array(128).fill(0);
+let totalActivity = 0, activityCount = 0;
+
+// ─────────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('world');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 20;
+  canvas.width = size; canvas.height = size;
+}
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); if(sim) render(); });
+
+// ─────────────────────────────────────────────────────────────
+//  WORLD TO CANVAS
+// ─────────────────────────────────────────────────────────────
+function wx(x) { return (x / W) * canvas.width; }
+function wy(y) { return (y / H) * canvas.height; }
+function ws(s) { return (s / W) * canvas.width; }
+
+// ─────────────────────────────────────────────────────────────
+//  TOROIDAL DISTANCE
+// ─────────────────────────────────────────────────────────────
+function toroidalDist(ax,ay,bx,by) {
+  let dx = Math.abs(ax-bx), dy = Math.abs(ay-by);
+  if(dx>W/2) dx=W-dx; if(dy>H/2) dy=H-dy;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function toroidalDelta(ax,ay,bx,by) {
+  let dx=bx-ax, dy=by-ay;
+  if(dx>W/2) dx-=W; if(dx<-W/2) dx+=W;
+  if(dy>H/2) dy-=H; if(dy<-H/2) dy+=H;
+  return [dx,dy];
+}
+function wrapPos(x,y) {
+  return [((x%W)+W)%W, ((y%H)+H)%H];
+}
+
+// ─────────────────────────────────────────────────────────────
+//  VORTEX FLOW FIELD (per spec: 2 rotating vortices + tidal osc)
+// ─────────────────────────────────────────────────────────────
+function current(x, y, t) {
+  // Vortex 1: center (30,30), angular velocity omega1
+  const v1x=30, v1y=30, omega1=0.003;
+  const r1x=x-v1x, r1y=y-v1y;
+  const r1sq=r1x*r1x+r1y*r1y+1;
+  const str1=200/r1sq;
+  const cx1=-omega1*r1y*str1, cy1=omega1*r1x*str1;
+
+  // Vortex 2: center (70,70), angular velocity omega2 (opposite)
+  const v2x=70, v2y=70, omega2=-0.002;
+  const r2x=x-v2x, r2y=y-v2y;
+  const r2sq=r2x*r2x+r2y*r2y+1;
+  const str2=150/r2sq;
+  const cx2=-omega2*r2y*str2, cy2=omega2*r2x*str2;
+
+  // Tidal oscillation
+  const tidal_phase = 2*Math.PI*t/T_TIDE;
+  const tid_x = 0.15*Math.sin(tidal_phase);
+  const tid_y = 0.10*Math.cos(tidal_phase*1.3);
+
+  return [cx1+cx2+tid_x, cy1+cy2+tid_y];
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DAYLIGHT
+// ─────────────────────────────────────────────────────────────
+function daylight(t) {
+  return 0.5 + 0.5*Math.pow(Math.sin(2*Math.PI*t/T_DAY), 2);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FOOD CHEMICAL EMISSION
+// ─────────────────────────────────────────────────────────────
+function foodEmission(type, t_local) {
+  const T = FOOD_PERIODS[type];
+  const phase = t_local % T;
+  return Math.exp(-(phase*phase)/(2*1.0*1.0));
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LISSAJOUS PREDATOR PATH
+// ─────────────────────────────────────────────────────────────
+function lissajousPos(cfg, t) {
+  const x = W/2 + cfg.ax*Math.sin(cfg.fx*t + cfg.px);
+  const y = H/2 + cfg.ay*Math.sin(cfg.fy*t + cfg.py);
+  return [x, y];
+}
+
+// ─────────────────────────────────────────────────────────────
+//  INIT SIMULATION
+// ─────────────────────────────────────────────────────────────
+function initSim(seed) {
+  const rng = seededRng(seed || Math.floor(Math.random()*100000));
+
+  // Creature
+  const creature = {
+    x: rng()*W, y: rng()*H,
+    theta: rng()*Math.PI*2,
+    vx: 0, vy: 0,
+    energy: 150,
+    hunger: 0,
+    reward: 0, rewardTimer: 0,
+    totalEats: 0, correctEats: 0, toxicEats: 0,
+    predHits: 0,
+  };
+
+  // Foods: 30 of each type
+  const foods = [];
+  for(let type of FOOD_TYPES) {
+    for(let i=0; i<FOOD_COUNT; i++) {
+      foods.push({
+        type, x: rng()*W, y: rng()*H,
+        eaten: false, respawnTimer: 0,
+        birthT: Math.floor(rng()*1000), // stagger initial phase
+      });
+    }
+  }
+
+  // Predators (Lissajous paths, randomized per trial)
+  const predators = [];
+  for(let i=0; i<PREDATOR_COUNT; i++) {
+    predators.push({
+      cfg: {
+        ax: 25+rng()*20, ay: 20+rng()*25,
+        fx: 0.003+rng()*0.004, fy: 0.004+rng()*0.003,
+        px: rng()*Math.PI*2, py: rng()*Math.PI*2,
+      },
+      x: rng()*W, y: rng()*H,
+    });
+  }
+
+  // Shelters: 2 fixed circles
+  const shelters = [
+    { x: 20+rng()*10, y: 20+rng()*10 },
+    { x: 65+rng()*15, y: 60+rng()*20 },
+  ];
+
+  // Nutrition phase (random start)
+  const nutritionPhaseIdx = Math.floor(rng()*NUTRITION_PHASES.length);
+  const nutritionStartOffset = Math.floor(rng()*NUTRITION_ROTATION_INTERVAL);
+
+  return {
+    t: 0,
+    creature,
+    foods,
+    predators,
+    shelters,
+    nutritionPhaseIdx,
+    nutritionStartOffset,
+    nightStepsTotal: 0,
+    nightStepsInShelter: 0,
+    lastBrainOutput: {thrust:0, turnRate:0, eat:0},
+    brainState: {},
+    dead: false,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SEEDED RNG (simple LCG)
+// ─────────────────────────────────────────────────────────────
+function seededRng(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  COMPUTE SENSORS (per spec, section 3.1)
+// ─────────────────────────────────────────────────────────────
+function computeSensors(s) {
+  const c = s.creature;
+  const t = s.t;
+  const dl = daylight(t);
+
+  // ── Chemical sensor (superposition of nearby food emissions)
+  let chemVal = 0;
+  for(const f of s.foods) {
+    if(f.eaten) continue;
+    const d = toroidalDist(c.x,c.y,f.x,f.y);
+    if(d < 0.01) continue;
+    const delay = d / FOOD_VCHEM;
+    const t_local = (t - delay - f.birthT);
+    if(t_local < 0) continue;
+    const att = 1/d;
+    chemVal += att * foodEmission(f.type, t_local);
+  }
+  chemVal += gaussNoise(SENSOR_NOISE);
+
+  // ── Acoustic sensors (L and R ears)
+  const earL = {
+    x: c.x + EAR_OFFSET*Math.cos(c.theta + Math.PI/2),
+    y: c.y + EAR_OFFSET*Math.sin(c.theta + Math.PI/2),
+  };
+  const earR = {
+    x: c.x + EAR_OFFSET*Math.cos(c.theta - Math.PI/2),
+    y: c.y + EAR_OFFSET*Math.sin(c.theta - Math.PI/2),
+  };
+  let acL=0, acR=0;
+  for(const p of s.predators) {
+    const [plx,ply] = toroidalDelta(earL.x,earL.y,p.x,p.y);
+    const dL = Math.sqrt(plx*plx+ply*ply);
+    const delayL = dL/SOUND_SPEED;
+    acL += (1/(dL+1))*Math.sin(2*Math.PI*47*(t-delayL)/1000);
+
+    const [prx,pry] = toroidalDelta(earR.x,earR.y,p.x,p.y);
+    const dR = Math.sqrt(prx*prx+pry*pry);
+    const delayR = dR/SOUND_SPEED;
+    acR += (1/(dR+1))*Math.sin(2*Math.PI*47*(t-delayR)/1000);
+  }
+  acL += gaussNoise(SENSOR_NOISE);
+  acR += gaussNoise(SENSOR_NOISE);
+
+  // ── Proximity raycasts (8 rays, range modulated by daylight)
+  const effectiveRange = RAY_RANGE * dl;
+  const proximity = [];
+  for(let i=0; i<RAY_COUNT; i++) {
+    const angle = c.theta + (i/RAY_COUNT)*2*Math.PI;
+    const result = castRay(s, c.x, c.y, angle, effectiveRange);
+    proximity.push({
+      dist: result.dist + gaussNoise(PROX_NOISE),
+      type: result.type
+    });
+  }
+
+  // ── Shelter beacons (unit vectors)
+  const shelterBeacons = s.shelters.map(sh => {
+    const [dx,dy] = toroidalDelta(c.x,c.y,sh.x,sh.y);
+    const d = Math.sqrt(dx*dx+dy*dy)+0.001;
+    return {ux:dx/d, uy:dy/d};
+  });
+
+  // ── Proprioception
+  const speed = Math.sqrt(c.vx*c.vx+c.vy*c.vy);
+
+  // ── Internal state
+  const nutritionPhaseIdx = getNutritionPhase(s);
+  const goodTypes = NUTRITION_PHASES[nutritionPhaseIdx];
+
+  return {
+    chemical: chemVal,
+    acL, acR,
+    proximity,
+    shelterBeacons,
+    speed,
+    theta: c.theta,
+    vx: c.vx, vy: c.vy,
+    energy: c.energy,
+    hunger: c.hunger,
+    reward: c.reward,
+    t,
+    // (expose for brain convenience)
+    daylight: dl,
+    isNight: dl < NIGHT_THRESHOLD,
+    // NOT exposed: food types, nutrition mapping (brain must infer)
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RAY CAST (returns {dist, type})
+// ─────────────────────────────────────────────────────────────
+function castRay(s, ox, oy, angle, maxDist) {
+  const dx = Math.cos(angle), dy = Math.sin(angle);
+  let best = { dist: maxDist, type: 0 };
+
+  // Check foods
+  for(const f of s.foods) {
+    if(f.eaten) continue;
+    const d = rayCircleIntersect(ox,oy,dx,dy,f.x,f.y,0.5,maxDist);
+    if(d!==null && d<best.dist) best={dist:d,type:1};
+  }
+  // Check predators
+  for(const p of s.predators) {
+    const d = rayCircleIntersect(ox,oy,dx,dy,p.x,p.y,1.0,maxDist);
+    if(d!==null && d<best.dist) best={dist:d,type:2};
+  }
+  // Check shelters
+  for(const sh of s.shelters) {
+    const d = rayCircleIntersect(ox,oy,dx,dy,sh.x,sh.y,SHELTER_RADIUS,maxDist);
+    if(d!==null && d<best.dist) best={dist:d,type:4};
+  }
+  return best;
+}
+
+function rayCircleIntersect(ox,oy,dx,dy,cx,cy,r,maxD) {
+  // Handle toroidal: try 9 copies
+  const offsets = [
+    [0,0],[W,0],[-W,0],[0,H],[0,-H],
+    [W,H],[W,-H],[-W,H],[-W,-H]
+  ];
+  let best=null;
+  for(const [ox2,oy2] of offsets) {
+    const lx=cx+ox2-ox, ly=cy+oy2-oy;
+    const a=dx*dx+dy*dy, b=2*(dx*lx+dy*ly), cc=lx*lx+ly*ly-r*r;
+    const disc=b*b-4*a*cc;
+    if(disc<0) continue;
+    const t=(-b-Math.sqrt(disc))/(2*a);
+    if(t>0.01&&t<maxD&&(best===null||t<best)) best=t;
+  }
+  return best;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  NUTRITION PHASE
+// ─────────────────────────────────────────────────────────────
+function getNutritionPhase(s) {
+  const elapsed = s.t + s.nutritionStartOffset;
+  const phaseIdx = Math.floor(elapsed / NUTRITION_ROTATION_INTERVAL) % NUTRITION_PHASES.length;
+  return (s.nutritionPhaseIdx + phaseIdx) % NUTRITION_PHASES.length;
+}
+
+function stepsUntilRotation(s) {
+  const elapsed = s.t + s.nutritionStartOffset;
+  return NUTRITION_ROTATION_INTERVAL - (elapsed % NUTRITION_ROTATION_INTERVAL);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  GAUSSIAN NOISE
+// ─────────────────────────────────────────────────────────────
+function gaussNoise(sigma) {
+  const u1=Math.random(), u2=Math.random();
+  return sigma*Math.sqrt(-2*Math.log(u1+1e-10))*Math.cos(2*Math.PI*u2);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STEP SIMULATION
+// ─────────────────────────────────────────────────────────────
+function stepSim(s) {
+  if(s.dead || s.t >= TRIAL_LEN) return;
+  const c = s.creature;
+  const t = s.t;
+
+  // ── Update predator positions
+  for(const p of s.predators) {
+    const [nx,ny] = lissajousPos(p.cfg, t);
+    p.x = ((nx%W)+W)%W;
+    p.y = ((ny%H)+H)%H;
+  }
+
+  // ── Respawn eaten food
+  for(const f of s.foods) {
+    if(f.eaten) {
+      f.respawnTimer--;
+      if(f.respawnTimer<=0) {
+        f.eaten=false;
+        f.x=Math.random()*W; f.y=Math.random()*H;
+        f.birthT=t;
+      }
+    }
+  }
+
+  // ── Compute sensors
+  const sensors = computeSensors(s);
+
+  // ── Run brain
+  let brainOut = {thrust:0, turnRate:0, eat:0};
+  let activity = 0;
+  if(brainFn) {
+    try {
+      const out = brainFn(sensors, s.brainState);
+      if(out) {
+        brainOut.thrust = Math.max(-1,Math.min(1, out.thrust||0));
+        brainOut.turnRate = Math.max(-Math.PI/6,Math.min(Math.PI/6, out.turnRate||0));
+        brainOut.eat = Math.max(0,Math.min(1, out.eat||0));
+        activity = Math.abs(brainOut.thrust)+Math.abs(brainOut.turnRate)+Math.abs(brainOut.eat);
+      }
+    } catch(e) {}
+  }
+  s.lastBrainOutput = brainOut;
+  totalActivity += activity;
+  activityCount++;
+
+  // ── Creature dynamics (per spec eq. 1-4)
+  c.theta += brainOut.turnRate;
+  const [cx,cy] = current(c.x, c.y, t);
+  const Fnet_x = brainOut.thrust*Math.cos(c.theta) + cx - DRAG*c.vx;
+  const Fnet_y = brainOut.thrust*Math.sin(c.theta) + cy - DRAG*c.vy;
+  c.vx += Fnet_x / MASS;
+  c.vy += Fnet_y / MASS;
+  c.x += c.vx;
+  c.y += c.vy;
+  [c.x,c.y] = wrapPos(c.x, c.y);
+
+  // ── Day/night energy
+  const dl = daylight(t);
+  const isNight = dl < NIGHT_THRESHOLD;
+  const inShelter = s.shelters.some(sh => toroidalDist(c.x,c.y,sh.x,sh.y) < SHELTER_RADIUS);
+  if(isNight) {
+    s.nightStepsTotal++;
+    if(inShelter) { c.energy += NIGHT_IN_ENERGY; s.nightStepsInShelter++; }
+    else { c.energy += NIGHT_OUT_ENERGY; }
+  }
+
+  // ── Reward timer decay
+  if(c.rewardTimer>0) { c.rewardTimer--; if(c.rewardTimer<=0) c.reward=0; }
+
+  // ── Eating
+  if(brainOut.eat>0.5) {
+    const nutritionPhaseIdx = getNutritionPhase(s);
+    const goodTypes = NUTRITION_PHASES[nutritionPhaseIdx];
+    for(const f of s.foods) {
+      if(f.eaten) continue;
+      const d = toroidalDist(c.x,c.y,f.x,f.y);
+      if(d < EAT_DIST) {
+        f.eaten=true; f.respawnTimer=FOOD_RESPAWN; f.birthT=t;
+        const isGood = goodTypes.includes(f.type);
+        if(isGood) {
+          c.energy += ENERGY_GOOD;
+          c.reward = 1; c.rewardTimer = 5;
+          c.correctEats++;
+        } else {
+          c.energy += ENERGY_BAD;
+          c.reward = -1; c.rewardTimer = 5;
+          c.toxicEats++;
+        }
+        c.totalEats++;
+        break;
+      }
+    }
+  }
+
+  // ── Predator collision
+  for(const p of s.predators) {
+    const d = toroidalDist(c.x,c.y,p.x,p.y);
+    if(d < PREDATOR_HIT_DIST) {
+      c.energy -= PREDATOR_DAMAGE;
+      c.predHits++;
+      p.x=Math.random()*W; p.y=Math.random()*H;
+    }
+  }
+
+  // ── Hunger
+  c.hunger = Math.max(0, Math.min(1, 1 - c.energy/300));
+
+  // ── Energy clamp / death check
+  c.energy = Math.max(0, Math.min(300, c.energy));
+  if(c.energy<=0) s.dead=true;
+
+  s.t++;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────────────────────────
+function render() {
+  const s = sim;
+  const W2 = canvas.width, H2 = canvas.height;
+  ctx.clearRect(0,0,W2,H2);
+
+  // Background with subtle grid
+  ctx.fillStyle = '#020508';
+  ctx.fillRect(0,0,W2,H2);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(19,29,53,0.6)';
+  ctx.lineWidth = 0.5;
+  for(let i=0;i<=10;i++) {
+    ctx.beginPath(); ctx.moveTo(i*W2/10,0); ctx.lineTo(i*W2/10,H2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*H2/10); ctx.lineTo(W2,i*H2/10); ctx.stroke();
+  }
+
+  const t = s.t;
+  const dl = daylight(t);
+
+  // Night overlay
+  if(dl < NIGHT_THRESHOLD) {
+    ctx.fillStyle = `rgba(0,0,30,${0.5*(1-dl/NIGHT_THRESHOLD)})`;
+    ctx.fillRect(0,0,W2,H2);
+  }
+
+  // ── Draw flow field (arrows, sampled)
+  const gridN = 12;
+  for(let gi=0;gi<gridN;gi++) for(let gj=0;gj<gridN;gj++) {
+    const fx_ = (gi+0.5)*W/gridN, fy_ = (gj+0.5)*H/gridN;
+    const [cvx,cvy] = current(fx_,fy_,t);
+    const mag = Math.sqrt(cvx*cvx+cvy*cvy);
+    const alpha = Math.min(0.35, mag*3);
+    ctx.strokeStyle = `rgba(0,180,255,${alpha})`;
+    ctx.lineWidth = 0.5;
+    const cx2=wx(fx_), cy2=wy(fy_);
+    const len = Math.min(mag*12, 6);
+    const nx=cvx/(mag+0.001), ny=cvy/(mag+0.001);
+    ctx.beginPath();
+    ctx.moveTo(cx2,cy2);
+    ctx.lineTo(cx2+nx*len,cy2+ny*len);
+    ctx.stroke();
+    // arrowhead
+    ctx.beginPath();
+    ctx.arc(cx2+nx*len,cy2+ny*len,1,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,180,255,${alpha})`;
+    ctx.fill();
+  }
+
+  // ── Shelters
+  for(const sh of s.shelters) {
+    const grad = ctx.createRadialGradient(wx(sh.x),wy(sh.y),0,wx(sh.x),wy(sh.y),ws(SHELTER_RADIUS));
+    grad.addColorStop(0, 'rgba(50,100,255,0.18)');
+    grad.addColorStop(1, 'rgba(50,100,255,0)');
+    ctx.beginPath();
+    ctx.arc(wx(sh.x),wy(sh.y),ws(SHELTER_RADIUS),0,Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle='rgba(80,120,255,0.5)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([3,3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ── Foods
+  const nutritionPhaseIdx = getNutritionPhase(s);
+  const goodTypes = NUTRITION_PHASES[nutritionPhaseIdx];
+  for(const f of s.foods) {
+    if(f.eaten) continue;
+    const isGood = goodTypes.includes(f.type);
+    const baseColor = FOOD_COLORS[f.type];
+    const pulse = 0.5+0.5*foodEmission(f.type, (t - f.birthT));
+    ctx.beginPath();
+    ctx.arc(wx(f.x),wy(f.y),ws(0.5+pulse*0.3),0,Math.PI*2);
+    ctx.fillStyle = baseColor;
+    ctx.globalAlpha = 0.5+pulse*0.4;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Toxic glow ring
+    if(!isGood) {
+      ctx.beginPath();
+      ctx.arc(wx(f.x),wy(f.y),ws(0.9),0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,68,68,0.3)';
+      ctx.lineWidth=0.5;
+      ctx.stroke();
+    }
+  }
+
+  // ── Predators
+  for(const p of s.predators) {
+    const px=wx(p.x), py=wy(p.y);
+    // Threat ring
+    ctx.beginPath();
+    ctx.arc(px,py,ws(PREDATOR_HIT_DIST),0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,68,68,0.15)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    // Body
+    ctx.beginPath();
+    ctx.arc(px,py,ws(1.0),0,Math.PI*2);
+    ctx.fillStyle='#ff4466';
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(px-ws(0.3),py-ws(0.2),ws(0.2),0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px+ws(0.3),py-ws(0.2),ws(0.2),0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(px-ws(0.25),py-ws(0.2),ws(0.12),0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px+ws(0.25),py-ws(0.2),ws(0.12),0,Math.PI*2); ctx.fill();
+  }
+
+  // ── Creature
+  const c = s.creature;
+  const cpx = wx(c.x), cpy = wy(c.y);
+
+  // Ray casts visualization
+  const dl2 = daylight(t);
+  const sensors = computeSensors(s);
+  for(let i=0;i<RAY_COUNT;i++) {
+    const angle = c.theta + (i/RAY_COUNT)*2*Math.PI;
+    const r = sensors.proximity[i];
+    const rayLen = ws(r.dist);
+    const hitColors={0:'rgba(255,255,255,0.05)',1:'rgba(0,255,100,0.4)',2:'rgba(255,68,68,0.5)',3:'rgba(180,180,180,0.3)',4:'rgba(80,120,255,0.4)'};
+    ctx.beginPath();
+    ctx.moveTo(cpx, cpy);
+    ctx.lineTo(cpx+Math.cos(angle)*rayLen, cpy+Math.sin(angle)*rayLen);
+    ctx.strokeStyle = hitColors[r.type]||'rgba(255,255,255,0.05)';
+    ctx.lineWidth=0.7;
+    ctx.stroke();
+  }
+
+  // Body glow
+  const grad2 = ctx.createRadialGradient(cpx,cpy,0,cpx,cpy,ws(3));
+  grad2.addColorStop(0,'rgba(200,240,255,0.25)');
+  grad2.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(cpx,cpy,ws(3),0,Math.PI*2);
+  ctx.fillStyle=grad2; ctx.fill();
+
+  // Body triangle
+  ctx.save();
+  ctx.translate(cpx,cpy);
+  ctx.rotate(c.theta);
+  const sz = ws(1.5);
+  ctx.beginPath();
+  ctx.moveTo(sz*1.5,0);
+  ctx.lineTo(-sz,sz*0.8);
+  ctx.lineTo(-sz,-sz*0.8);
+  ctx.closePath();
+  ctx.fillStyle='#ffffff';
+  ctx.fill();
+  ctx.strokeStyle='#00c8ff';
+  ctx.lineWidth=1;
+  ctx.stroke();
+  // Thrust flame
+  if(Math.abs(s.lastBrainOutput.thrust)>0.1) {
+    ctx.beginPath();
+    ctx.moveTo(-sz,0);
+    ctx.lineTo(-sz-ws(s.lastBrainOutput.thrust*3),gaussNoise(ws(0.5)));
+    ctx.strokeStyle='rgba(0,200,255,0.7)';
+    ctx.lineWidth=sz*0.8;
+    ctx.lineCap='round';
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Ears
+  const eLx=cpx+ws(EAR_OFFSET)*Math.cos(c.theta+Math.PI/2);
+  const eLy=cpy+ws(EAR_OFFSET)*Math.sin(c.theta+Math.PI/2);
+  const eRx=cpx+ws(EAR_OFFSET)*Math.cos(c.theta-Math.PI/2);
+  const eRy=cpy+ws(EAR_OFFSET)*Math.sin(c.theta-Math.PI/2);
+  ctx.fillStyle='rgba(0,200,255,0.7)';
+  ctx.beginPath(); ctx.arc(eLx,eLy,ws(0.2),0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(eRx,eRy,ws(0.2),0,Math.PI*2); ctx.fill();
+
+  // Reward flash
+  if(c.reward===1) {
+    ctx.beginPath(); ctx.arc(cpx,cpy,ws(2.5),0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,255,100,0.7)'; ctx.lineWidth=2; ctx.stroke();
+  } else if(c.reward===-1) {
+    ctx.beginPath(); ctx.arc(cpx,cpy,ws(2.5),0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,68,68,0.7)'; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  // Dead overlay
+  if(s.dead) {
+    ctx.fillStyle='rgba(255,0,0,0.15)';
+    ctx.fillRect(0,0,W2,H2);
+    ctx.fillStyle='rgba(255,68,68,0.9)';
+    ctx.font='bold 14px Space Mono';
+    ctx.textAlign='center';
+    ctx.fillText('CREATURE DIED — RESET TO RESTART',W2/2,H2/2);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  UPDATE UI
+// ─────────────────────────────────────────────────────────────
+function updateUI() {
+  const s = sim;
+  const c = s.creature;
+  const t = s.t;
+
+  document.getElementById('hdr-step').textContent = `T=${t}`;
+  document.getElementById('sb-step').textContent = `${t} / ${TRIAL_LEN}`;
+  document.getElementById('sb-tidal').textContent = (t%T_TIDE).toString();
+  document.getElementById('sb-daycyc').textContent = (t%T_DAY).toString();
+
+  const dl = daylight(t);
+  const isNight = dl < NIGHT_THRESHOLD;
+  const badge = document.getElementById('dayBadge');
+  badge.textContent = isNight ? 'NIGHT' : 'DAY';
+  badge.className = 'day-badge ' + (isNight ? 'night' : 'day');
+
+  // Creature stats
+  const energyPct = (c.energy/300*100).toFixed(0);
+  document.getElementById('s-energy').textContent = c.energy.toFixed(1);
+  document.getElementById('s-energy').className = 'stat-val ' + (c.energy>100?'good':c.energy>50?'warn':'bad');
+  document.getElementById('bar-energy').style.width = energyPct+'%';
+  document.getElementById('bar-energy').style.background = c.energy>100?'var(--green)':c.energy>50?'var(--amber)':'var(--red)';
+
+  document.getElementById('s-hunger').textContent = c.hunger.toFixed(2);
+  document.getElementById('bar-hunger').style.width = (c.hunger*100).toFixed(0)+'%';
+
+  document.getElementById('s-speed').textContent = Math.sqrt(c.vx*c.vx+c.vy*c.vy).toFixed(2);
+  document.getElementById('s-theta').textContent = (c.theta%(2*Math.PI)).toFixed(2);
+  document.getElementById('s-reward').textContent = c.reward;
+  document.getElementById('s-reward').className = 'stat-val ' + (c.reward>0?'good':c.reward<0?'bad':'');
+  document.getElementById('s-eats').textContent = `${c.correctEats}/${c.totalEats}`;
+  document.getElementById('s-phits').textContent = c.predHits;
+
+  // Nutrition
+  const phaseIdx = getNutritionPhase(s);
+  const goodTypes = NUTRITION_PHASES[phaseIdx];
+  const nr = document.getElementById('nutri-row');
+  nr.innerHTML = FOOD_TYPES.map(ft => {
+    const cls = goodTypes.includes(ft)?'good':'bad';
+    return `<div class="nutri-badge ${cls}">${ft}</div>`;
+  }).join('');
+  document.getElementById('nutri-countdown').textContent = stepsUntilRotation(s);
+  document.getElementById('sb-nutphase').textContent = goodTypes.join('');
+
+  // Daylight
+  document.getElementById('s-daylight').textContent = dl.toFixed(2);
+  document.getElementById('bar-daylight').style.width = (dl*100).toFixed(0)+'%';
+  const inShelter = s.shelters.some(sh => toroidalDist(c.x,c.y,sh.x,sh.y) < SHELTER_RADIUS);
+  document.getElementById('s-inshelter').textContent = inShelter ? 'Yes' : 'No';
+  document.getElementById('s-inshelter').className = 'stat-val ' + (inShelter?'good':'');
+  const nightCov = s.nightStepsTotal>0 ? (s.nightStepsInShelter/s.nightStepsTotal*100).toFixed(1)+'%' : '—';
+  document.getElementById('s-nightcov').textContent = nightCov;
+
+  // Chemical waveform
+  const sensors = computeSensors(s);
+  chemHistory = new Float32Array([...chemHistory.slice(1), sensors.chemical]);
+  drawWave('chemwave', chemHistory, '#00ff9d');
+
+  // Acoustic
+  acousHistory = new Float32Array([...acousHistory.slice(1), sensors.acL]);
+  drawWave('acouswave', acousHistory, '#00c8ff');
+  document.getElementById('s-acl').textContent = sensors.acL.toFixed(3);
+  document.getElementById('s-acr').textContent = sensors.acR.toFixed(3);
+  document.getElementById('s-chem').textContent = sensors.chemical.toFixed(3);
+
+  // Brain outputs
+  const bo = s.lastBrainOutput;
+  document.getElementById('bo-thrust').style.width = ((bo.thrust+1)/2*100)+'%';
+  document.getElementById('bv-thrust').textContent = bo.thrust.toFixed(2);
+  document.getElementById('bo-turn').style.width = ((bo.turnRate/(Math.PI/6)+1)/2*100)+'%';
+  document.getElementById('bv-turn').textContent = bo.turnRate.toFixed(3);
+  document.getElementById('bo-eat').style.width = (bo.eat*100)+'%';
+  document.getElementById('bv-eat').textContent = bo.eat.toFixed(2);
+
+  // Scores
+  const foragingAcc = c.totalEats>0 ? ((c.correctEats-c.toxicEats)/c.totalEats).toFixed(2) : '—';
+  document.getElementById('sc-surv').textContent = s.dead?'0.00':(t/TRIAL_LEN).toFixed(3);
+  document.getElementById('sc-forage').textContent = foragingAcc;
+  document.getElementById('sc-pred').textContent = c.predHits>0?c.predHits+' hits':'Clean';
+  document.getElementById('sc-shelter').textContent = nightCov;
+  const avgActivity = activityCount>0?(totalActivity/activityCount).toFixed(3):'—';
+  document.getElementById('sc-activity').textContent = avgActivity;
+  document.getElementById('sb-activity').textContent = avgActivity;
+}
+
+function drawWave(canvasId, data, color) {
+  const c2 = document.getElementById(canvasId);
+  const ctx2 = c2.getContext('2d');
+  const W2=c2.clientWidth||c2.width, H2=c2.clientHeight||c2.height;
+  c2.width=W2; c2.height=40;
+  ctx2.clearRect(0,0,W2,40);
+  ctx2.fillStyle='rgba(0,0,0,0.3)';
+  ctx2.fillRect(0,0,W2,40);
+  // Find scale
+  let mx=0.001;
+  for(const v of data) if(Math.abs(v)>mx) mx=Math.abs(v);
+  ctx2.strokeStyle=color; ctx2.lineWidth=1;
+  ctx2.beginPath();
+  for(let i=0;i<data.length;i++) {
+    const x=(i/data.length)*W2;
+    const y=20-data[i]/mx*18;
+    if(i===0) ctx2.moveTo(x,y); else ctx2.lineTo(x,y);
+  }
+  ctx2.stroke();
+  // Zero line
+  ctx2.strokeStyle='rgba(255,255,255,0.1)';
+  ctx2.beginPath(); ctx2.moveTo(0,20); ctx2.lineTo(W2,20); ctx2.stroke();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MAIN LOOP
+// ─────────────────────────────────────────────────────────────
+let lastFrameT = 0;
+function loop(ts) {
+  if(!running) return;
+  if(ts - lastFrameT >= 1000/30) { // 30fps render cap
+    for(let i=0;i<simSpeed;i++) {
+      if(!sim.dead && sim.t < TRIAL_LEN) stepSim(sim);
+    }
+    render();
+    updateUI();
+    lastFrameT = ts;
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+function toggleRun() {
+  running = !running;
+  const btn = document.getElementById('btnRun');
+  if(running) {
+    btn.textContent = '⏸ PAUSE';
+    btn.classList.add('active');
+    rafId = requestAnimationFrame(loop);
+  } else {
+    btn.textContent = '▶ RUN';
+    btn.classList.remove('active');
+    if(rafId) cancelAnimationFrame(rafId);
+  }
+}
+
+function resetSim() {
+  if(rafId) cancelAnimationFrame(rafId);
+  running = false;
+  const btn = document.getElementById('btnRun');
+  btn.textContent = '▶ RUN';
+  btn.classList.remove('active');
+  sim = initSim(sim._seed);
+  totalActivity=0; activityCount=0;
+  chemHistory=new Float32Array(128);
+  acousHistory=new Float32Array(128);
+  render(); updateUI();
+}
+
+function newTrial() {
+  if(rafId) cancelAnimationFrame(rafId);
+  running = false;
+  const btn = document.getElementById('btnRun');
+  btn.textContent = '▶ RUN';
+  btn.classList.remove('active');
+  const seed = Math.floor(Math.random()*100000);
+  sim = initSim(seed);
+  sim._seed = seed;
+  totalActivity=0; activityCount=0;
+  chemHistory=new Float32Array(128);
+  acousHistory=new Float32Array(128);
+  render(); updateUI();
+}
+
+function setSpeed(n) {
+  simSpeed=n;
+  document.querySelectorAll('.speed-btns .btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent===n+'×');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  BRAIN CODE EDITOR
+// ─────────────────────────────────────────────────────────────
+function applyBrain() {
+  const code = document.getElementById('brainCode').value;
+  const errEl = document.getElementById('codeError');
+  try {
+    // Wrap in a function that receives sensors and state
+    brainFn = new Function('sensors','_state', code);
+    errEl.textContent = '✓ Brain applied successfully';
+    errEl.style.color='var(--green)';
+  } catch(e) {
+    errEl.textContent = '✗ '+e.message;
+    errEl.style.color='var(--red)';
+    brainFn = null;
+  }
+}
+
+const exampleBrains = {
+  greedy: `// Greedy forager: head toward nearest food ray hit
+let bestDist = Infinity, bestAngle = 0;
+for(let i=0;i<sensors.proximity.length;i++) {
+  const r=sensors.proximity[i];
+  if(r.type===1 && r.dist<bestDist) {
+    bestDist=r.dist;
+    bestAngle=(i/sensors.proximity.length)*Math.PI*2;
+  }
+}
+const relAngle=bestAngle; // relative angle of food in body frame
+const turn=Math.max(-Math.PI/6,Math.min(Math.PI/6,relAngle));
+const eat=bestDist<1.5?1:0;
+return { thrust:0.7, turnRate:turn, eat };`,
+
+  shelter: `// Shelter-seeker: go to shelter at night, wander by day
+if(sensors.isNight) {
+  const b=sensors.shelterBeacons[0];
+  const angle=Math.atan2(b.uy,b.ux)-sensors.theta;
+  const turn=Math.atan2(Math.sin(angle),Math.cos(angle));
+  return { thrust:0.8, turnRate:Math.max(-Math.PI/6,Math.min(Math.PI/6,turn)), eat:0 };
+}
+// Day: forage
+const turn=(Math.random()-0.5)*0.3;
+const eat=sensors.proximity.some(r=>r.dist<1.8&&r.type===1)?1:0;
+return { thrust:0.6, turnRate:turn, eat };`,
+};
+
+function loadExampleBrain(name) {
+  document.getElementById('brainCode').value = exampleBrains[name];
+  applyBrain();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────────────────────────
+sim = initSim(42);
+sim._seed = 42;
+applyBrain();
+render();
+updateUI();
+</script>
+</body>
+</html>
