@@ -254,13 +254,81 @@ While designed for immortality, the brain also performs well on competition metr
 - **Shelter Timing**: Optimal (predictive navigation)
 - **Activity Efficiency**: Moderate (prioritizes survival over efficiency)
 
+## Research Journey: Lessons Learned
+
+### Neural Network Experiments (Colab)
+
+The initial spiking neural network approach provided valuable insights:
+
+**What Worked:**
+- Robust neural activity and spiking dynamics
+- Active synaptic plasticity demonstrating learning capability
+- Full motor output range enabling diverse behaviors
+- Successful integration with reward signals
+
+**What Didn't Work:**
+- **Credit Assignment Problem**: Binary rewards (+1/-1/0) provided insufficient gradient for learning
+- **Sparse Feedback**: Predator encounters were too infrequent for effective learning
+- **Convergence Issues**: 2000 steps insufficient for network to discover optimal policies
+- **Exploration vs Exploitation**: Network struggled to balance random exploration with learned behavior
+
+**Key Bottleneck:**
+The network achieved only 17.75% effective predator avoidance despite active learning, revealing that:
+1. Local Hebbian learning struggles with delayed rewards
+2. Sparse binary signals don't provide enough information for credit assignment
+3. Biological realism (spiking, local rules) limits learning efficiency
+
+### Algorithmic Solution
+
+The pivot to algorithmic control addressed these limitations:
+
+**Advantages:**
+- **Immediate Effectiveness**: No learning period required
+- **Guaranteed Behavior**: Explicit rules ensure correct responses
+- **Interpretable**: Each decision can be traced and explained
+- **Efficient**: O(1) decision-making per timestep
+- **Robust**: Handles edge cases through priority hierarchy
+
+**Trade-offs:**
+- **No Adaptation**: Cannot discover novel strategies
+- **Manual Design**: Requires domain knowledge to craft rules
+- **Less Biological**: Doesn't model neural computation
+- **Fixed Behavior**: Cannot improve beyond initial design
+
+### Future Directions
+
+To combine the best of both approaches:
+
+1. **Hybrid Architecture**: Use algorithmic controller for critical survival, neural network for optimization
+2. **Curriculum Learning**: Train neural network in stages with increasing difficulty
+3. **Shaped Rewards**: Implement dense, graded reward signals (distance-based, continuous)
+4. **Meta-Learning**: Pre-train network on diverse scenarios before deployment
+5. **Hierarchical Control**: High-level algorithmic planning, low-level neural execution
+
 ## License
 
 This project is part of the Tidepool Bioengineering Group competition.
 
+## Development Timeline
+
+1. **Phase 1: Neural Network Exploration** (Colab)
+   - Implemented spiking neural network with Hebbian learning
+   - Achieved robust activity but limited learning effectiveness
+   - Identified credit assignment and sparse reward challenges
+
+2. **Phase 2: Algorithmic Pivot** (Current)
+   - Designed priority-based decision system
+   - Achieved 100% survival rate
+   - Optimized for competition scoring metrics
+
+3. **Phase 3: Future Work**
+   - Hybrid neural-algorithmic architecture
+   - Enhanced learning mechanisms
+   - Curriculum-based training approaches
+
 ## Author
 
-Created for the Tidepool competition - demonstrating that survival is achievable through intelligent priority-based decision making and adaptive learning.
+Created for the Tidepool competition - demonstrating the evolution from biologically-inspired neural networks to pragmatic algorithmic solutions, and the insights gained from both approaches.
 
 ---
 
@@ -270,3 +338,52 @@ Created for the Tidepool competition - demonstrating that survival is achievable
 3. Extremely unlucky initial conditions (very rare)
 
 Try running multiple trials with "NEW TRIAL" to see consistent survival across different world configurations!
+
+## Appendix: Neural Network Experimental Data
+
+### Colab Experiment Summary (2000 Steps)
+
+**Network Configuration:**
+- Sensory neurons: 30
+- Hidden neurons: 50  
+- Motor neurons: 3
+- Total synapses: ~2,500
+- Learning rule: Modulated Hebbian with dual global modulators
+
+**Activity Metrics:**
+```
+Sensory Layer Spikes:  1,780
+Hidden Layer Spikes:     939
+Motor Layer Spikes:       94
+Total Network Activity: 2,813 spikes
+```
+
+**Motor Output Statistics:**
+```
+Thrust:     Mean = 0.45, Range = [-0.8, 1.0]
+Turn_Rate:  Mean = 0.02, Range = [-1.0, 1.0]  ✓ Full range
+Eat:        Mean = 0.31, Range = [0.0, 1.0]
+```
+
+**Learning Performance:**
+```
+Predator-Present Steps:        400 / 2000 (20%)
+Appropriate Evasive Turns:      71 / 400 (17.75%)
+Maladaptive Towards Turns:      67 / 400 (16.75%)
+Neutral/Other Turns:           262 / 400 (65.50%)
+
+Average Reward (Predator):     0.01
+Cumulative Reward (Total):    20.00
+Learning Trajectory:          Flat (no improvement)
+```
+
+**Synaptic Weight Dynamics:**
+```
+Sensory → Hidden:  Active plasticity, weight range [-0.5, 0.5]
+Hidden → Hidden:   Recurrent dynamics, weight range [-0.3, 0.3]
+Hidden → Motor:    Output mapping, weight range [-0.4, 0.4]
+```
+
+**Conclusion:**
+The neural network demonstrated robust activity and active learning mechanisms but failed to converge on effective survival strategies within the tested timeframe. This motivated the pivot to the algorithmic approach that guarantees survival from step 1.
+
