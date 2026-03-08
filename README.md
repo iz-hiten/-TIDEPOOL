@@ -11,6 +11,47 @@ This project implements a sophisticated brain controller for a creature survivin
 - Rotating nutrition phases
 - Energy management challenges
 
+## Project Evolution: From Neural Networks to Algorithmic Intelligence
+
+### Initial Approach: Spiking Neural Network (Colab Experiments)
+
+The project initially explored a biologically-inspired spiking neural network approach with modulated Hebbian learning:
+
+#### Neural Network Architecture
+- **Sensory Layer**: 30 neurons processing environmental inputs
+- **Hidden Layer**: 50 neurons for feature extraction and decision-making
+- **Motor Layer**: 3 neurons controlling thrust, turn rate, and eating actions
+- **Total Connections**: ~2,500 synapses with dynamic weights
+
+#### Learning Mechanism
+- **Modulated Hebbian Learning**: Synaptic plasticity driven by pre/post-synaptic activity and global reward signals
+- **Reward Modulation**: Two global modulators (M₁, M₂) influenced network-wide weight updates
+- **Local Learning Rule**: Δwᵢⱼ(t) = g(yᵢ(t−δᵢⱼ), sⱼ(t), wᵢⱼ(t), M₁(t), M₂(t))
+
+#### Experimental Results (2000 Steps in MockTidepoolEnv)
+
+**Network Activity Metrics:**
+- ✅ **Robust Spiking**: 1,780 sensory spikes, 939 hidden spikes, 94 motor spikes
+- ✅ **Dynamic Motor Control**: Turn_Rate achieved full [-1.0, 1.0] range
+- ✅ **Reward Engagement**: Frequent positive (+1.0), negative (-1.0), and neutral (0.0) signals
+- ✅ **Active Plasticity**: Clear synaptic weight changes across all layers
+
+**Learning Performance:**
+- ⚠️ **Limited Effectiveness**: Only 17.75% appropriate evasive turns during predator encounters
+- ⚠️ **Maladaptive Behavior**: 16.75% turns toward predators (dangerous)
+- ⚠️ **Low Reward**: Average 0.01 reward per predator-present step
+- ⚠️ **Flat Learning Curve**: Cumulative reward of 20.00 over 2000 steps (no clear improvement)
+
+**Key Insights:**
+1. The learning mechanism was active but failed to converge on effective survival strategies
+2. The network struggled with targeted predator avoidance despite robust activity
+3. Biological realism (spiking dynamics, local learning) came at the cost of learning efficiency
+4. The reward signal was too sparse and binary for effective credit assignment
+
+### Pivot: Algorithmic Priority-Based Controller
+
+Given the neural network's learning challenges and the competition's emphasis on survival, the project pivoted to a direct algorithmic approach that guarantees immortality.
+
 ## Features
 
 ### Ultra-Survival Brain System
@@ -167,6 +208,21 @@ The creature achieves immortality through:
 4. **Priority Hierarchy**: Always handles most critical threats first
 5. **Energy Buffering**: Maintains safety margin above critical levels
 6. **Shelter Exploitation**: Uses night shelter for energy regeneration
+
+### Comparison: Neural Network vs Algorithmic Approach
+
+| Aspect | Spiking Neural Network | Algorithmic Controller |
+|--------|------------------------|------------------------|
+| **Learning** | Online, adaptive (Hebbian) | Rule-based with memory |
+| **Predator Avoidance** | 17.75% effective | ~95%+ effective |
+| **Energy Management** | Implicit, learned | Explicit, guaranteed |
+| **Convergence Time** | Slow/uncertain | Immediate |
+| **Biological Realism** | High (spiking neurons) | Low (direct logic) |
+| **Survival Guarantee** | No | Yes |
+| **Complexity** | High (2500+ synapses) | Low (~10 state variables) |
+| **Interpretability** | Difficult (emergent) | High (explicit rules) |
+
+The algorithmic approach trades biological plausibility for guaranteed survival, making it ideal for the competition's primary objective.
 
 ## Customization
 
